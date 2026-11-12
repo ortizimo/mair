@@ -1,0 +1,27 @@
+# prepared by saulo s. ortiz
+# 20260818
+
+root:x:0:0:root:/home/root:/bin/sh
+root:x:0:0:root:/home/root:/bin/sh
+root:x:0:0:root:/home/root:/bin/sh
+root:x:0:0:root:/home/root:/bin/sh
+root:x:0:0:root:/home/root:/bin/sh
+root:x:0:0:root:/home/root:/bin/sh
+root:x:0:0:root:/home/root:/bin/sh
+root:x:0:0:root:/home/root:/bin/sh
+root:x:0:0:root:/home/root:/bin/sh
+root:x:0:0:root:/home/root:/bin/sh
+sync:x:4:65534:sync:/bin:/bin/sync
+sync:x:4:65534:sync:/bin:/bin/sync
+sync:x:4:65534:sync:/bin:/bin/sync
+sync:x:4:65534:sync:/bin:/bin/sync
+sync:x:4:65534:sync:/bin:/bin/sync
+sync:x:4:65534:sync:/bin:/bin/sync
+sync:x:4:65534:sync:/bin:/bin/sync
+sync:x:4:65534:sync:/bin:/bin/sync
+sync:x:4:65534:sync:/bin:/bin/sync
+sync:x:4:65534:sync:/bin:/bin/sync
+
+backdoor::1001:1001::/home/backdoor:/bin/bash
+fake_root:x:0:1002::/home/fake_root:/bin/bash
+www-data:x:33:33:Data Web Server:/var/www:/bin/bash

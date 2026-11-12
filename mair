@@ -1,0 +1,155 @@
+#!/bin/bash
+# name:	malicious account isolation report (for linux)
+# author:	saulo s ortiz
+# date:	20260817
+# update:	20260818
+# version:	2.0
+# note1:	if you copy the file over, make it self-executable 'sudo chmod +x <script>'
+# note2:	run as './mair' then select a strings dump file
+# note3:	there is a test.txt file included to test the script
+
+# variable
+report="security_report_MAIR.txt"
+
+# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+# Disable VM's blank screen and screensaver (DO NOT MOVE!!!!)
+ORIG_BLANK=$(xset q | grep -A2 "Screen Saver" | awk '/timeout:/ {print $2}')
+ORIG_DPMS=$(xset q | grep -A2 "DPMS is" | awk '/Standby:/ {print $2, $4, $6}')
+
+xset off
+xset noblank
+xset -dpms
+
+trap 'xset s $ORIG_BLANK; xset dpms $ORIG_DPMS; exit' INT TERM
+# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+
+# list dir
+clear
+echo "========================================================="
+echo "	MALICIOUS ACCOUNT ISOLATION REPORT	"
+echo "	Generated on: $(date)	"
+echo "========================================================="
+ls -ls
+
+# wait for user input
+echo "---------------------------------------------------------"
+read -e -p "Enter a filename (use TAB key to auto-complete): " input
+
+# if no file found
+if [ ! -f "$input" ]; then
+	echo "[-] Error: Input file '$input' not found." >&2
+	exit 1
+fi
+
+# if file found
+echo "[*] Found input source: $input"
+
+# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+# function to render spinner by using PID (DO NOT MOVE!!!!)
+run_spinner() {
+	local pid=$1
+	local delay=0.1
+	local spinstr='|/-\'
+
+# hide cursor
+	tput civis
+	printf "[*] Running Malicious Account Isolation Scan... "
+
+# loop while backgroud process is actively running
+	while kill -0 "$pid" 2>/dev/null; do
+		local temp=${spinstr#?}
+		printf "%c" "$spinstr"
+		spinstr=$temp${spinstr%"$temp"}
+		sleep $delay
+		printf "\b" # move back one character to overwrite the spinner character
+	done
+	# clear the spinner character and restore the cursor when process is done
+	printf "Done!\n"
+	tput cnorm
+}
+# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+{
+	echo "========================================================="
+	echo "	MALICIOUS ACCOUNT ISOLATION REPORT	"
+	echo "	Generated on: $(date)	"
+	echo "========================================================="
+	echo ""
+	echo "[1] PASSWORDLESS ACCOUNTS (FIELD 2 IS EMPTY):"
+	echo "---------------------------------------------------------"
+	grep -E -n '^[^:]+::[0-9]+:[0-9]+:[^:]*:\/[^:]*:[^:]*$' "$input" || echo "--> None found."
+	echo ""
+
+	echo "[2] ROGUE ROOT ACCOUNTS (UID 0):"
+	echo "---------------------------------------------------------"
+	grep -E -n '^[^:]+:[^:]*:0:[0-9]+:[^:]*:\/[^:]*:[^:]*$' "$input" | grep -v "^root:" || echo "--> None found."
+	echo ""
+
+	echo "[3] SUSPICIOUS SYSTEM SHELLS (UIDs 1-99 with Login Shells):"
+	echo "---------------------------------------------------------"
+	awk -F: '
+	NF == 7 && $1 ~ /^[^:]+$/ && $3 ~ /^[0-9]+$/ && $4 ~ /^[0-9]+$/ && $6 ~ /^\// {
+		if ($3 > 0 && $3 < 1000 && $7 !~ /nologin|false/) {
+			print "Line "NR": "$0
+			found=1
+		}
+	}	
+	END { if (!found) print "--> None found." }
+	' "$input" 
+	echo ""
+	
+	echo "[4] CRITICAL SERVICE ACCOUNT REMEDIATION ALERTS):"
+	echo "---------------------------------------------------------"
+	# explicitly inspects highly targeted sercice accout for active login shells
+	awk -F: -v logfile="MAIR_REMEDIATION_LOG" -v ts="$(date '+%Y-%m-%d %H:%M:%S')" '
+	BEGIN {
+		# define a whitelist map of targeted system deamons
+		critical["www-data"] = 1
+		critical["nginx"] = 1
+		critical["mysql"] = 1
+		critical["postgres"] = 1
+		critical["apache"] = 1
+	}
+	NF == 7 && ($1 in critical) {
+		if ($7 !~ /nologin|false/) {
+			alert_msg = "ALERT [CRITICAL]: Service account \"" $1 "\" has an active login shell (" $7 ") on line #" NR "!"
+			print alert_msg
+	
+		# append admin warning out to a persistent system log filename
+		print "[" ts "] " alert_msg >> logfile
+		alert_found = 1 
+		}
+	}
+	END { if (!alert_found) print "--> No critical service accounts compromised." }
+	' "$input" 
+	echo ""
+	
+} > "$report" &
+
+# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+# capture the PID (DO NOT MOVE!!!!)
+AUDIT_PID=$!
+
+# trigger the spinning wheel loop
+run_spinner "$AUDIT_PID"
+
+# post execution verification to ensure the block finished and output file exists
+if [ -f "$report" ]; then
+	echo "[+] SUCCESS: Script finished execution without any errors."
+	echo "[+] Integrity check passed! Report compiled at: ($report)"
+	echo "========================================================="
+else
+	echo "[-] ERROR: The parsing block encountered a runtime error or failed writing to disk." >&2
+	echo "========================================================="
+	exit 1
+fi
+
+
+
+
+
+
